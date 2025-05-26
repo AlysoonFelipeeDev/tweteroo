@@ -1,6 +1,6 @@
 import express, {json} from "express";
 import dotenv from "dotenv";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import Joi from "joi";
 
 dotenv.config();
@@ -104,6 +104,45 @@ app.get("/tweets", async(req, res) => {
             res.send(publishedTweets)
         }
         
+    } catch (err) {
+        res.status(500).send(err)
+    }
+})
+
+app.put("/tweets/:id", async(req, res) => {
+    const tweet = req.body;
+    const {id} = req.params;
+
+    const tweetSchema = Joi.object({
+        username: Joi.string().required,
+        tweet: Joi.string().required()
+    })
+
+    const validation = tweetSchema.validate(tweet, {abortEarly: false})
+
+    if(validation.error){
+        const errors = validation.error.details.map(detail => detail.message)
+        res.status(422).send(errors)
+    }
+
+    try {
+        const user = await db.collection("users").findOne({username: tweet.username})
+        if(!user){
+            return res.sendStatus(401)
+        }
+
+        const result = await db.collection("tweets").updateOne({
+            _id: new ObjectId(id)}, { $set: {
+                tweet: tweet.tweet
+            }}
+        )
+
+        if(result.matchedCount === 0) {
+            return res.sendStatus(404)
+        }
+
+        res.sendStatus(201)
+
     } catch (err) {
         res.status(500).send(err)
     }
