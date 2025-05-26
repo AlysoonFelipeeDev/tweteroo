@@ -1,10 +1,11 @@
-import express from "express";
+import express, {json} from "express";
 import dotenv from "dotenv";
 import { MongoClient } from "mongodb";
 import Joi from "joi";
 
 dotenv.config();
 const app = express();
+app.use(json())
 
 const mongoClient = new MongoClient(process.env.DATABASE_URL)
 let db;
@@ -69,10 +70,39 @@ app.post("/tweets", async(req, res) => {
         const newTweet = {
             username : user.username,
             tweet,
+            createdAt: new date()
         }
 
         await db.collection("tweets").insertOne(newTweet)
         return res.sendStatus(201)
+        
+    } catch (err) {
+        res.status(500).send(err)
+    }
+})
+
+app.get("/tweets", async(req, res) => {
+    const publishedTweets = [];
+
+    try {
+        const tweets = await db.collection("tweets")
+        .find()
+        .sort( {createdAt: -1} )
+        .toArray()
+
+            for(const tweet of tweets){
+                const user = await db.collection("users").findOne({username: tweet.username})
+            
+                const fullTweet = {
+                    _id: tweet._id,
+                    username: tweet,
+                    avatar: user.avatar,
+                    tweet: tweet.tweet
+            }
+
+            publishedTweets.push(fullTweet)
+            res.send(publishedTweets)
+        }
         
     } catch (err) {
         res.status(500).send(err)
