@@ -44,3 +44,37 @@ const port = process.env.PORT || 5000;
 app.listen(port, () => {
     console.log(`Servidor rodando liso na porta ${port}`)
 })
+
+app.post("/tweets", async(req, res) => {
+    const { username, tweet } = req.body
+
+    const tweetSchema = Joi.object({
+        username: Joi.string().required(),
+        tweet: Joi.string().required()
+    })
+
+    const validation = tweetSchema.validate(req.body, {abortEarly: false})
+
+    if(validation.error){
+        const errors = validation.error.details.map(detail => detail.message)
+        res.status(422).send(errors)
+    }
+
+    try {
+        const user = await db.collection("users").findOne({username})
+        if(!user){
+            return res.sendStatus(401)
+        }
+
+        const newTweet = {
+            username : user.username,
+            tweet,
+        }
+
+        await db.collection("tweets").insertOne(newTweet)
+        return res.sendStatus(201)
+        
+    } catch (err) {
+        res.status(500).send(err)
+    }
+})
