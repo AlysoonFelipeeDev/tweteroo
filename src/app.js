@@ -2,10 +2,12 @@ import express, {json} from "express";
 import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
 import Joi from "joi";
+import cors from "cors";
 
 dotenv.config();
 const app = express();
-app.use(json())
+app.use(json());
+app.use(cors());
 
 const mongoClient = new MongoClient(process.env.DATABASE_URL)
 let db;
@@ -36,7 +38,7 @@ app.post("/sign-up", async(req, res) => {
     try {
         await db.collection("users").insertOne(user)
         res.sendStatus(201)
-    } catch (error) {
+    } catch (err) {
         res.status(500).send(err)
     }
 })
@@ -58,7 +60,7 @@ app.post("/tweets", async(req, res) => {
 
     if(validation.error){
         const errors = validation.error.details.map(detail => detail.message)
-        res.status(422).send(errors)
+        return res.status(422).send(errors)
     }
 
     try {
@@ -70,7 +72,7 @@ app.post("/tweets", async(req, res) => {
         const newTweet = {
             username : user.username,
             tweet,
-            createdAt: new date()
+            createdAt: new Date()
         }
 
         await db.collection("tweets").insertOne(newTweet)
@@ -95,14 +97,14 @@ app.get("/tweets", async(req, res) => {
             
                 const fullTweet = {
                     _id: tweet._id,
-                    username: tweet,
+                    username: tweet.username,
                     avatar: user.avatar,
                     tweet: tweet.tweet
             }
 
             publishedTweets.push(fullTweet)
-            res.send(publishedTweets)
         }
+        res.send(publishedTweets)
         
     } catch (err) {
         res.status(500).send(err)
@@ -110,30 +112,30 @@ app.get("/tweets", async(req, res) => {
 })
 
 app.put("/tweets/:id", async(req, res) => {
-    const tweet = req.body;
+    const updateTweet = req.body;
     const {id} = req.params;
 
     const tweetSchema = Joi.object({
-        username: Joi.string().required,
+        username: Joi.string().required(),
         tweet: Joi.string().required()
     })
 
-    const validation = tweetSchema.validate(tweet, {abortEarly: false})
+    const validation = tweetSchema.validate(updateTweet, {abortEarly: false})
 
     if(validation.error){
         const errors = validation.error.details.map(detail => detail.message)
-        res.status(422).send(errors)
+        return res.status(422).send(errors)
     }
 
     try {
-        const user = await db.collection("users").findOne({username: tweet.username})
+        const user = await db.collection("users").findOne({username: updateTweet.username})
         if(!user){
             return res.sendStatus(401)
         }
 
         const result = await db.collection("tweets").updateOne({
             _id: new ObjectId(id)}, { $set: {
-                tweet: tweet.tweet
+                tweet: updateTweet.tweet
             }}
         )
 
@@ -141,8 +143,26 @@ app.put("/tweets/:id", async(req, res) => {
             return res.sendStatus(404)
         }
 
-        res.sendStatus(201)
+        res.sendStatus(204)
 
+    } catch (err) {
+        res.status(500).send(err)
+    }
+})
+
+app.delete("/tweets/:id", async(req, res) => {
+    const {id} = req.params
+
+    try {
+        const result = await db.collection("tweets").deleteOne({
+            _id: new ObjectId(id)
+        })
+
+        if(result.deletedCount === 0){
+            return res.sendStatus(404)
+        }
+
+        res.sendStatus(204)
     } catch (err) {
         res.status(500).send(err)
     }
