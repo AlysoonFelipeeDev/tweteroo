@@ -84,35 +84,32 @@ app.post("/tweets", async(req, res) => {
 })
 
 app.get("/tweets", async(req, res) => {
-    const publishedTweets = [];
-
     try {
         const tweets = await db.collection("tweets")
         .find()
         .sort( {createdAt: -1} )
         .toArray()
 
-            for(const tweet of tweets){
-                const user = await db.collection("users").findOne({username: tweet.username})
+            const fullTweets = await Promise.all(tweets.map(async (tweet) => {
+            const user = await db.collection("users").findOne({username: tweet.username})
             
-                const fullTweet = {
+                return {
                     _id: tweet._id,
                     username: tweet.username,
                     avatar: user.avatar,
                     tweet: tweet.tweet
-            }
+                };
+            }))
 
-            publishedTweets.push(fullTweet)
-        }
-        res.send(publishedTweets)
-        
+            res.send(fullTweets)
+
     } catch (err) {
         res.status(500).send(err)
     }
 })
 
 app.put("/tweets/:id", async(req, res) => {
-    const updateTweet = req.body;
+    const updateTweet = req.body;''
     const {id} = req.params;
 
     const tweetSchema = Joi.object({
