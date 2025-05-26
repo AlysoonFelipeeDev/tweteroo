@@ -16,6 +16,17 @@ try {
     console.log(err)
 }
 
+app.post("/sign-up", async(req, res) => {
+    const user = req.body;
+
+    try {
+        await db.collection("users").insertOne(user)
+        res.sendStatus(201)
+    } catch (error) {
+        res.status(500).send(err)
+    }
+})
+
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
     console.log(`Servidor rodando liso na porta ${port}`)
